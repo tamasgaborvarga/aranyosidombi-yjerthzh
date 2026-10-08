@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://tamasgaborvarga.github.io/aranyosidomb/sitemap.xml
