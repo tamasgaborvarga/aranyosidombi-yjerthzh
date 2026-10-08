@@ -49,10 +49,35 @@
   (document.fonts?.ready || Promise.resolve()).then(start);
   setTimeout(start, 1200); // biztonsági háló lassú fonthoz
 
-  const io = new IntersectionObserver((entries) => entries.forEach((en) => {
-    if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
-  }), { rootMargin: '0px 0px -8% 0px' });
-  $$('.reveal, .draw').forEach((el) => io.observe(el));
+  // az egyszerre beérkező blokkok lépcsőzetesen jelennek meg (asztalon 80, mobilon 50 ms); a saját --d érintetlen marad.
+  // Az idővonal évei ennél lassabban (800 ms): a következő év akkor bukkan fel, amikor a vonal odaér.
+  const STEP = matchMedia('(max-width: 767px)').matches ? 50 : 80;
+  const io = new IntersectionObserver((entries) => {
+    const batch = entries.filter((en) => en.isIntersecting).map((en) => en.target);
+    let n = 0; let years = 0;
+    batch.forEach((el) => {
+      const isYear = el.classList.contains('tl-item');
+      const d = isYear ? years++ * 800 : Math.min(n++, 4) * STEP;
+      if (batch.length > 1 && !el.style.getPropertyValue('--d')) el.style.setProperty('--d', `${d}ms`);
+      el.classList.add('in'); io.unobserve(el);
+    });
+  }, { rootMargin: '0px 0px -8% 0px' });
+  $$('.reveal, .draw, .step, .tl-item').forEach((el) => io.observe(el));
+
+  /* Mobil foglalósáv: a hero gombjai után jelenik meg; az elérhetőség-kártyánál és a láblécnél elbújik (ott saját hívógomb van) */
+  const bar = $('#call-bar');
+  const heroCta = $('#hero-cta');
+  if (bar && heroCta) {
+    const seen = new Map();
+    const barIO = new IntersectionObserver((entries) => {
+      entries.forEach((en) => seen.set(en.target, en));
+      const h = seen.get(heroCta);
+      const pastHero = !!h && !h.isIntersecting && h.boundingClientRect.top < 0;
+      const nearContact = [...seen.values()].some((en) => en.target !== heroCta && en.isIntersecting);
+      bar.classList.toggle('is-shown', pastHero && !nearContact);
+    });
+    [heroCta, $('#elerhetoseg'), $('body > footer')].forEach((el) => el && barIO.observe(el));
+  }
 
   /* Hero-kollázs: a rétegek eltérő sebességgel mozdulnak görgetéskor (mélység) */
   const layers = $$('[data-depth]');
@@ -114,13 +139,25 @@
   const show = (i) => {
     idx = (i + items.length) % items.length;
     const a = items[idx];
+    // lapozáskor az új kép halkan beúszik (a betöltéséig átlátszó)
+    lbImg.classList.add('is-swapping');
+    lbImg.onload = () => lbImg.classList.remove('is-swapping');
     lbImg.src = a.getAttribute('href');
     lbImg.alt = a.querySelector('img')?.alt || '';
     lbCap.textContent = items.length > 1 ? `${idx + 1} / ${items.length} — ${lbImg.alt}` : lbImg.alt;
     $('#lb-prev').hidden = $('#lb-next').hidden = items.length < 2;
   };
-  const open = (i) => { lastFocus = document.activeElement; show(i); lb.hidden = false; document.body.classList.add('overflow-hidden'); $('#lb-close').focus(); };
-  const close = () => { lb.hidden = true; lbImg.removeAttribute('src'); document.body.classList.remove('overflow-hidden'); lastFocus?.focus(); };
+  // nyitás/zárás halk áttűnéssel: a hidden csak az áttűnés végén kerül vissza
+  let lbTimer = 0;
+  const open = (i) => {
+    clearTimeout(lbTimer); lastFocus = document.activeElement; show(i); lb.hidden = false;
+    void lb.offsetWidth; lb.classList.add('is-open');
+    document.body.classList.add('overflow-hidden'); $('#lb-close').focus();
+  };
+  const close = () => {
+    lb.classList.remove('is-open'); document.body.classList.remove('overflow-hidden'); lastFocus?.focus();
+    lbTimer = setTimeout(() => { lb.hidden = true; lbImg.removeAttribute('src'); }, 260);
+  };
   // csoportonként lapoz (a galéria és az oklevél külön sorozat)
   $$('[data-lb]').forEach((a) => a.addEventListener('click', (e) => {
     e.preventDefault();
@@ -132,7 +169,7 @@
   $('#lb-next')?.addEventListener('click', () => show(idx + 1));
   lb?.addEventListener('click', (e) => { if (e.target === lb) close(); });
   addEventListener('keydown', (e) => {
-    if (lb.hidden) return;
+    if (lb.hidden || !lb.classList.contains('is-open')) return;
     if (e.key === 'Tab') trapFocus(lb, e);
     if (e.key === 'Escape') close();
     if (e.key === 'ArrowLeft') show(idx - 1);
