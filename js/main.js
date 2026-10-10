@@ -64,20 +64,6 @@
   }, { rootMargin: '0px 0px -8% 0px' });
   $$('.reveal, .draw, .step, .tl-item').forEach((el) => io.observe(el));
 
-  /* Mobil foglalósáv: a hero gombjai után jelenik meg; az elérhetőség-kártyánál és a láblécnél elbújik (ott saját hívógomb van) */
-  const bar = $('#call-bar');
-  const heroCta = $('#hero-cta');
-  if (bar && heroCta) {
-    const seen = new Map();
-    const barIO = new IntersectionObserver((entries) => {
-      entries.forEach((en) => seen.set(en.target, en));
-      const h = seen.get(heroCta);
-      const pastHero = !!h && !h.isIntersecting && h.boundingClientRect.top < 0;
-      const nearContact = [...seen.values()].some((en) => en.target !== heroCta && en.isIntersecting);
-      bar.classList.toggle('is-shown', pastHero && !nearContact);
-    });
-    [heroCta, $('#elerhetoseg'), $('body > footer')].forEach((el) => el && barIO.observe(el));
-  }
 
   /* Hero-kollázs: a rétegek eltérő sebességgel mozdulnak görgetéskor (mélység) */
   const layers = $$('[data-depth]');
