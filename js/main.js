@@ -64,7 +64,6 @@
   }, { rootMargin: '0px 0px -8% 0px' });
   $$('.reveal, .draw, .step, .tl-item').forEach((el) => io.observe(el));
 
-
   /* Hero-kollázs: a rétegek eltérő sebességgel mozdulnak görgetéskor (mélység) */
   const layers = $$('[data-depth]');
   if (layers.length && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
